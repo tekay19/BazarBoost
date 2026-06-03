@@ -1,52 +1,45 @@
-# SEO Optimize Studio
+# QR Menu SaaS
 
-E-ticaret platformları için SEO optimizasyon aracı.
+PWA uyumlu, çok kiracılı (multi-tenant) QR menü platformu.
+Next.js (App Router) · TypeScript · Tailwind · Prisma · PostgreSQL.
 
 ## Kurulum
 
-### Backend
-
-1. Bağımlılıkları yükleyin:
 ```bash
-pip install -r requirements.txt
+npm install
+cp .env.example .env          # DATABASE_URL ve SECRET_KEY değerlerini ayarlayın
+npm run db:push               # şemayı veritabanına uygula
+npm run db:seed               # süper admin + 200 şablon + örnek işletmeler
+npm run dev                   # http://localhost:3000
 ```
 
-2. Ortam değişkenlerini ayarlayın (.env dosyası oluşturun):
-```bash
-SECRET_KEY=your-secret-key-here
-SUPABASE_URL=your-supabase-url
-SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
-OPENAI_API_KEY=your-openai-api-key
-ADMIN_EMAILS=admin@example.com
-CORS_ORIGINS=http://localhost:8501
-```
+## Giriş Bilgileri (seed)
 
-3. Backend'i başlatın:
-```bash
-cd backend
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
-```
+- **Süper Admin:** `/admin/login` → `admin@qrmenu.com` / `Admin123!`
+- **İşletme:** `/business/login` → `owner@pizzanapoli.com` / `Owner123!`
+- **Örnek menü:** http://localhost:3000/m/pizzanapoli/ana-menu
 
-### Frontend
+## Subdomain
 
-1. Streamlit'i başlatın:
-```bash
-cd frontend
-streamlit run app.py --server.port 8501
-```
+Üretimde `pizzanapoli.qrmenu.com` → ilgili işletmenin yayındaki menüsü
+(middleware host’u çözer). Geliştirmede `/m/{subdomain}/{menuSlug}` yolu kullanılır.
 
-2. Tarayıcıda açın: http://localhost:8501
+## Komutlar
 
-## API Endpoints
+| Komut | Açıklama |
+|-------|----------|
+| `npm run dev` | Geliştirme sunucusu |
+| `npm run build` | Prod derleme |
+| `npm run db:push` | Prisma şemasını uygula |
+| `npm run db:seed` | Örnek veri yükle |
+| `npm run db:reset` | DB sıfırla + seed |
 
-- `POST /auth/register` - Kullanıcı kaydı
-- `POST /auth/login` - Giriş
-- `GET /auth/me` - Kullanıcı bilgileri
-- `GET /user/credits/get` - Kredi bakiyesi
-- `POST /user/credits/use` - Kredi kullan
-- `POST /seo/optimize` - SEO optimizasyonu
-- `POST /payments/create-session` - Ödeme oturumu oluştur
-- `GET /admin/users` - Tüm kullanıcıları listele (admin)
-- `POST /admin/credits` - Kredi ekle (admin)
+## Mimari
 
-# BazarBoost
+- **Kimlik:** Süper admin e-posta/şifre; işletmeler admin daveti (güvenli, süreli, tek kullanımlık token) ile onboarding. Roller: `SUPER_ADMIN`, `BUSINESS_OWNER`, `BUSINESS_STAFF`.
+- **Tenant izolasyonu:** her sorgu `businessId` ile sınırlanır; üyelik kontrolü `requireBusinessUser` üzerinden.
+- **Şablonlar:** `src/lib/templates.ts` — 8 kategori × layout × palet = 200 premium şablon; layout’lar `src/components/menu/MenuRenderer.tsx`.
+- **QR/PDF:** `src/lib/qr.ts`, `src/lib/pdf.ts` — PNG ve baskıya uygun A4 PDF.
+- **Import:** `src/lib/import.ts` — CSV/Excel parse, doğrulama, hatalı satır raporu, formül enjeksiyonu koruması.
+- **Depolama:** S3 uyumlu (`src/lib/storage.ts`); yapılandırılmazsa data-URL fallback.
+- **PWA:** `public/manifest.webmanifest`, `public/sw.js` (offline menü cache).

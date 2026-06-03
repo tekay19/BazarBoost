@@ -1,0 +1,355 @@
+// QR Menu SaaS — Prisma schema
+// Multi-tenant: every tenant-scoped row carries businessId and queries filter on it.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  BUSINESS_OWNER
+  BUSINESS_STAFF
+}
+
+enum BusinessType {
+  RESTAURANT
+  CAFE
+  BAR
+  BURGER
+  PIZZA
+  KEBAB
+  DESSERT
+  FINE_DINING
+  OTHER
+}
+
+enum BusinessStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum MenuStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+  INACTIVE
+}
+
+enum InviteStatus {
+  PENDING
+  USED
+  EXPIRED
+  REVOKED
+}
+
+enum PackageTier {
+  FREE
+  BASIC
+  PRO
+  ENTERPRISE
+}
+
+// ---------------------------------------------------------------------------
+// Identity
+// ---------------------------------------------------------------------------
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String?
+  name         String?
+  role         Role     @default(BUSINESS_OWNER)
+  isActive     Boolean  @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  businessLinks BusinessUser[]
+  auditLogs     AuditLog[]
+  magicTokens   MagicLinkToken[]
+
+  @@index([email])
+}
+
+model Business {
+  id            String         @id @default(cuid())
+  name          String
+  type          BusinessType   @default(RESTAURANT)
+  slug          String         @unique // used internally
+  subdomain     String         @unique
+  address       String?
+  phone         String?
+  contactName   String?
+  contactPhone  String?
+  email         String?
+  taxInfo       String?
+  logoUrl       String?
+  description   String?
+  status        BusinessStatus @default(ACTIVE)
+  package       PackageTier    @default(FREE)
+  seoIndexable  Boolean        @default(true)
+  lastActivityAt DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  users        BusinessUser[]
+  invites      InviteToken[]
+  categories   Category[]
+  products     Product[]
+  menus        Menu[]
+  qrCodes      QrCode[]
+  menuViews    MenuView[]
+  mediaFiles   MediaFile[]
+  auditLogs    AuditLog[]
+  magicTokens  MagicLinkToken[]
+
+  @@index([subdomain])
+  @@index([status])
+}
+
+// join: which users belong to which business and with what role
+model BusinessUser {
+  id         String   @id @default(cuid())
+  businessId String
+  userId     String
+  role       Role     @default(BUSINESS_OWNER)
+  createdAt  DateTime @default(now())
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, userId])
+  @@index([businessId])
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// Auth tokens
+// ---------------------------------------------------------------------------
+
+model InviteToken {
+  id          String       @id @default(cuid())
+  businessId  String
+  tokenHash   String       @unique // we store a hash, not the raw token
+  email       String?
+  role        Role         @default(BUSINESS_OWNER)
+  status      InviteStatus @default(PENDING)
+  singleUse   Boolean      @default(true)
+  expiresAt   DateTime
+  usedAt      DateTime?
+  createdAt   DateTime     @default(now())
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId])
+  @@index([tokenHash])
+}
+
+model MagicLinkToken {
+  id         String    @id @default(cuid())
+  businessId String
+  userId     String?
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  usedAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  user     User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([tokenHash])
+}
+
+// ---------------------------------------------------------------------------
+// Catalog (tenant scoped)
+// ---------------------------------------------------------------------------
+
+model Category {
+  id          String   @id @default(cuid())
+  businessId  String
+  name        String
+  description String?
+  imageUrl    String?
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  business  Business   @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  products  Product[]
+  menuItems MenuItem[]
+
+  @@index([businessId])
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  businessId  String
+  categoryId  String?
+  name        String
+  description String?
+  price       Decimal  @default(0) @db.Decimal(10, 2)
+  currency    String   @default("TRY")
+  imageUrl    String?
+  inStock     Boolean  @default(true)
+  tags        String[] @default([]) // acılı, vegan, yeni, popüler, glutensiz...
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  business  Business   @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  category  Category?  @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  menuItems MenuItem[]
+
+  @@index([businessId])
+  @@index([categoryId])
+}
+
+// ---------------------------------------------------------------------------
+// Menus (versioned)
+// ---------------------------------------------------------------------------
+
+model Menu {
+  id          String     @id @default(cuid())
+  businessId  String
+  name        String
+  slug        String
+  status      MenuStatus @default(DRAFT)
+  templateKey String     @default("general-classic")
+  // brand / template overrides as JSON
+  theme       Json       @default("{}")
+  locale      String     @default("tr")
+  version     Int        @default(1)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  business  Business   @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  items     MenuItem[]
+  qrCodes   QrCode[]
+  views     MenuView[]
+
+  @@unique([businessId, slug])
+  @@index([businessId])
+  @@index([slug])
+}
+
+// products/categories included in a given menu, with per-menu ordering
+model MenuItem {
+  id         String   @id @default(cuid())
+  menuId     String
+  productId  String
+  categoryId String?
+  sortOrder  Int      @default(0)
+  isVisible  Boolean  @default(true)
+
+  menu     Menu      @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  product  Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  category Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  @@unique([menuId, productId])
+  @@index([menuId])
+}
+
+// ---------------------------------------------------------------------------
+// Templates (global catalog, ~200 premium configs)
+// ---------------------------------------------------------------------------
+
+model MenuTemplate {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  name        String
+  category    String // pizza, burger, cafe, kebab, restaurant, bar, dessert, fine-dining
+  layout      String // layout component identifier
+  config      Json     @default("{}")
+  isPremium   Boolean  @default(true)
+  previewUrl  String?
+  createdAt   DateTime @default(now())
+
+  @@index([category])
+}
+
+// ---------------------------------------------------------------------------
+// QR codes (per-menu, optionally per-table)
+// ---------------------------------------------------------------------------
+
+model QrCode {
+  id         String   @id @default(cuid())
+  businessId String
+  menuId     String
+  label      String? // e.g. "Masa 1"
+  tableNo    String?
+  targetUrl  String
+  scanCount  Int      @default(0)
+  lastScanAt DateTime?
+  createdAt  DateTime @default(now())
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  menu     Menu     @relation(fields: [menuId], references: [id], onDelete: Cascade)
+
+  @@index([businessId])
+  @@index([menuId])
+}
+
+// ---------------------------------------------------------------------------
+// Analytics
+// ---------------------------------------------------------------------------
+
+model MenuView {
+  id         String   @id @default(cuid())
+  businessId String
+  menuId     String
+  qrCodeId   String?
+  deviceType String? // mobile, tablet, desktop
+  referrer   String?
+  createdAt  DateTime @default(now())
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  menu     Menu     @relation(fields: [menuId], references: [id], onDelete: Cascade)
+
+  @@index([businessId])
+  @@index([menuId])
+  @@index([createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Media + audit
+// ---------------------------------------------------------------------------
+
+model MediaFile {
+  id         String   @id @default(cuid())
+  businessId String
+  key        String // storage key
+  url        String
+  mimeType   String?
+  size       Int?
+  createdAt  DateTime @default(now())
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  businessId String?
+  userId     String?
+  action     String
+  entity     String?
+  entityId   String?
+  metadata   Json     @default("{}")
+  ip         String?
+  createdAt  DateTime @default(now())
+
+  business Business? @relation(fields: [businessId], references: [id], onDelete: SetNull)
+  user     User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([businessId])
+  @@index([userId])
+  @@index([createdAt])
+}
