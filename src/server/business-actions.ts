@@ -255,9 +255,10 @@ export async function createQrCode(menuId: string, formData: FormData) {
   const tableNo = String(formData.get("tableNo") || "") || null;
 
   const base = process.env.APP_BASE_URL || "http://localhost:3000";
-  const targetUrl = `${base}/m/${business.subdomain}/${menu.slug}${tableNo ? `?table=${encodeURIComponent(tableNo)}` : ""}`;
-
-  await prisma.qrCode.create({ data: { businessId: business.id, menuId, label, tableNo, targetUrl } });
+  // create first to get the id, then bake ?qr=<id> into the target URL for scan attribution
+  const created = await prisma.qrCode.create({ data: { businessId: business.id, menuId, label, tableNo, targetUrl: "" } });
+  const targetUrl = `${base}/m/${business.subdomain}/${menu.slug}?qr=${created.id}${tableNo ? `&table=${encodeURIComponent(tableNo)}` : ""}`;
+  await prisma.qrCode.update({ where: { id: created.id }, data: { targetUrl } });
   revalidatePath(`/business/menus/${menuId}/qr`);
   return { ok: true };
 }
@@ -268,15 +269,16 @@ export async function generateTableQrs(menuId: string, count: number) {
   const base = process.env.APP_BASE_URL || "http://localhost:3000";
   const n = Math.min(Math.max(count, 1), 100);
 
-  await prisma.qrCode.createMany({
-    data: Array.from({ length: n }, (_, i) => ({
-      businessId: business.id,
-      menuId,
-      label: `Masa ${i + 1}`,
-      tableNo: String(i + 1),
-      targetUrl: `${base}/m/${business.subdomain}/${menu.slug}?table=${i + 1}`,
-    })),
-  });
+  // create per-row so each QR can carry its own ?qr=<id> for scan attribution
+  for (let i = 0; i < n; i++) {
+    const created = await prisma.qrCode.create({
+      data: { businessId: business.id, menuId, label: `Masa ${i + 1}`, tableNo: String(i + 1), targetUrl: "" },
+    });
+    await prisma.qrCode.update({
+      where: { id: created.id },
+      data: { targetUrl: `${base}/m/${business.subdomain}/${menu.slug}?qr=${created.id}&table=${i + 1}` },
+    });
+  }
   revalidatePath(`/business/menus/${menuId}/qr`);
   return { ok: true };
 }

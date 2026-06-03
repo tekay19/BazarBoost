@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { saveCategory, deleteCategory } from "@/server/business-actions";
 import { Card, CardContent, Input, Label, Textarea } from "@/components/ui";
 import { Button } from "@/components/ui/button";
+import { ImageUpload } from "@/components/ImageUpload";
 import { Pencil, Trash2 } from "lucide-react";
 
 interface Cat {
@@ -63,7 +64,7 @@ export function CategoriesManager({ categories }: { categories: Cat[] }) {
             <input type="hidden" name="id" value={editing?.id ?? ""} />
             <div className="space-y-1.5"><Label>Ad</Label><Input name="name" defaultValue={editing?.name ?? ""} required /></div>
             <div className="space-y-1.5"><Label>Açıklama</Label><Textarea name="description" defaultValue={editing?.description ?? ""} /></div>
-            <div className="space-y-1.5"><Label>Görsel URL</Label><Input name="imageUrl" defaultValue={editing?.imageUrl ?? ""} /></div>
+            <div className="space-y-1.5"><Label>Görsel</Label><ImageUpload name="imageUrl" defaultValue={editing?.imageUrl ?? ""} label="Kategori görseli" /></div>
             <div className="space-y-1.5"><Label>Sıralama</Label><Input name="sortOrder" type="number" defaultValue={editing?.sortOrder ?? 0} /></div>
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" name="isActive" defaultChecked={editing?.isActive ?? true} /> Aktif

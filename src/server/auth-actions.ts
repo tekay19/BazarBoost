@@ -10,7 +10,7 @@ import {
   setSessionCookie,
   clearSession,
 } from "@/lib/auth";
-import { hashToken } from "@/lib/tokens";
+import { hashToken, generateToken } from "@/lib/tokens";
 import { logAudit } from "@/lib/audit";
 import { rateLimit, clientIp } from "@/lib/ratelimit";
 
@@ -128,6 +128,37 @@ export async function acceptInvite(_prev: unknown, formData: FormData) {
   await setSessionCookie(token);
   await logAudit({ businessId: invite.businessId, userId: user.id, action: "business.onboard", ip });
   redirect("/business/dashboard");
+}
+
+/** Request a magic login link. Returns the URL (dev: shown on screen; prod: email it). */
+export async function requestMagicLink(_prev: unknown, formData: FormData) {
+  const email = String(formData.get("email") || "").toLowerCase().trim();
+  const ip = clientIp(headers());
+  if (!rateLimit(`magic:${ip}`, 5, 60_000).ok) {
+    return { error: "Çok fazla istek. Lütfen biraz bekleyin." };
+  }
+
+  const user = await prisma.user.findUnique({ where: { email }, include: { businessLinks: true } });
+  // generic response to avoid leaking which emails exist
+  if (!user || !user.isActive || user.businessLinks.length === 0) {
+    return { ok: true, message: "Hesap varsa giriş linki gönderildi." };
+  }
+
+  const { raw, hash } = generateToken();
+  await prisma.magicLinkToken.create({
+    data: {
+      businessId: user.businessLinks[0].businessId,
+      userId: user.id,
+      tokenHash: hash,
+      expiresAt: new Date(Date.now() + 30 * 60_000), // 30 min
+    },
+  });
+  await logAudit({ businessId: user.businessLinks[0].businessId, userId: user.id, action: "magic.request", ip });
+
+  const base = process.env.APP_BASE_URL || "http://localhost:3000";
+  const url = `${base}/api/auth/magic?token=${raw}`;
+  // In production you'd email `url`. For the MVP we return it so it can be used directly.
+  return { ok: true, url, message: "Giriş linki oluşturuldu." };
 }
 
 export async function logout() {

@@ -30,11 +30,11 @@ export function middleware(req: NextRequest) {
   if (sub) {
     // pizzax.qrmenu.com/menu/<slug> -> /m/pizzax/<slug>
     if (url.pathname === "/" || url.pathname === "") {
-      return NextResponse.rewrite(new URL(`/m/${sub}`, req.url));
+      return NextResponse.rewrite(new URL(`/m/${sub}${url.search}`, req.url));
     }
     if (url.pathname.startsWith("/menu/")) {
       const slug = url.pathname.replace("/menu/", "");
-      return NextResponse.rewrite(new URL(`/m/${sub}/${slug}`, req.url));
+      return NextResponse.rewrite(new URL(`/m/${sub}/${slug}${url.search}`, req.url));
     }
     // allow assets / api / m routes through
     return NextResponse.next();

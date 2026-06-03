@@ -6,6 +6,7 @@ import { saveProduct, deleteProduct, commitImport } from "@/server/business-acti
 import { Card, CardContent, Input, Label, Select, Textarea } from "@/components/ui";
 import { Button } from "@/components/ui/button";
 import { Pencil, Trash2, Upload, X } from "lucide-react";
+import { ImageUpload } from "@/components/ImageUpload";
 import type { ValidatedProduct, RowError } from "@/lib/import";
 
 interface Product {
@@ -85,7 +86,7 @@ export function ProductsManager({ products, categories }: { products: Product[];
             <Fld label="Fiyat"><Input name="price" type="number" step="0.01" defaultValue={editing?.price ?? "0"} /></Fld>
             <Fld label="Para Birimi"><Input name="currency" defaultValue={editing?.currency ?? "TRY"} /></Fld>
             <Fld label="Sıralama"><Input name="sortOrder" type="number" defaultValue={editing?.sortOrder ?? 0} /></Fld>
-            <Fld label="Görsel URL" full><Input name="imageUrl" defaultValue={editing?.imageUrl ?? ""} /></Fld>
+            <Fld label="Görsel" full><ImageUpload name="imageUrl" defaultValue={editing?.imageUrl ?? ""} label="Ürün görseli" /></Fld>
             <Fld label="Etiketler (virgülle)" full><Input name="tags" defaultValue={editing?.tags.join(", ") ?? ""} placeholder="acılı, vegan, yeni" /></Fld>
             <Fld label="Açıklama" full><Textarea name="description" defaultValue={editing?.description ?? ""} /></Fld>
             <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="inStock" defaultChecked={editing?.inStock ?? true} /> Stokta</label>

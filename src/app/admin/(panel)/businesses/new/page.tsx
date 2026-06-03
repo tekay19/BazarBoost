@@ -4,6 +4,7 @@ import { useFormState, useFormStatus } from "react-dom";
 import { createBusiness } from "@/server/admin-actions";
 import { Card, CardContent, CardHeader, CardTitle, Input, Label, Select, Textarea } from "@/components/ui";
 import { Button } from "@/components/ui/button";
+import { ImageUpload } from "@/components/ImageUpload";
 
 const TYPES = [
   ["RESTAURANT", "Restoran"], ["CAFE", "Kafe"], ["BAR", "Bar"], ["PIZZA", "Pizzacı"],
@@ -39,7 +40,7 @@ export default function NewBusinessPage() {
             <Field label="Sorumlu Kişi"><Input name="contactName" /></Field>
             <Field label="Sorumlu Telefonu"><Input name="contactPhone" /></Field>
             <Field label="Vergi Bilgisi"><Input name="taxInfo" /></Field>
-            <Field label="Logo URL"><Input name="logoUrl" /></Field>
+            <Field label="Logo" full><ImageUpload name="logoUrl" label="Logo" /></Field>
             <Field label="Adres" full><Textarea name="address" /></Field>
             <Field label="Açıklama" full><Textarea name="description" /></Field>
             <Field label="Durum">

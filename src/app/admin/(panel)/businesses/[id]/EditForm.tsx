@@ -4,6 +4,7 @@ import { useState } from "react";
 import { updateBusiness, impersonateBusiness } from "@/server/admin-actions";
 import { Input, Label, Select, Textarea } from "@/components/ui";
 import { Button } from "@/components/ui/button";
+import { ImageUpload } from "@/components/ImageUpload";
 
 const TYPES = [
   ["RESTAURANT", "Restoran"], ["CAFE", "Kafe"], ["BAR", "Bar"], ["PIZZA", "Pizzacı"],
@@ -34,7 +35,7 @@ export function EditForm({ b }: { b: any }) {
       <F label="Sorumlu Kişi"><Input name="contactName" defaultValue={b.contactName ?? ""} /></F>
       <F label="Sorumlu Telefonu"><Input name="contactPhone" defaultValue={b.contactPhone ?? ""} /></F>
       <F label="Vergi Bilgisi"><Input name="taxInfo" defaultValue={b.taxInfo ?? ""} /></F>
-      <F label="Logo URL"><Input name="logoUrl" defaultValue={b.logoUrl ?? ""} /></F>
+      <F label="Logo" full><ImageUpload name="logoUrl" defaultValue={b.logoUrl ?? ""} label="Logo" /></F>
       <F label="Adres" full><Textarea name="address" defaultValue={b.address ?? ""} /></F>
       <F label="Açıklama" full><Textarea name="description" defaultValue={b.description ?? ""} /></F>
       <F label="Durum"><Select name="status" defaultValue={b.status}><option value="ACTIVE">Aktif</option><option value="INACTIVE">Pasif</option></Select></F>

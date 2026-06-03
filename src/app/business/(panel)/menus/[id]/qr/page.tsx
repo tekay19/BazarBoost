@@ -22,7 +22,8 @@ export default async function QrPage({ params }: { params: { id: string } }) {
   // ensure a default "general" QR exists
   let qrCodes = await prisma.qrCode.findMany({ where: { menuId: menu.id, businessId: c.business.id }, orderBy: { createdAt: "asc" } });
   if (qrCodes.length === 0) {
-    await prisma.qrCode.create({ data: { businessId: c.business.id, menuId: menu.id, label: "Genel", targetUrl: publicUrl } });
+    const def = await prisma.qrCode.create({ data: { businessId: c.business.id, menuId: menu.id, label: "Genel", targetUrl: "" } });
+    await prisma.qrCode.update({ where: { id: def.id }, data: { targetUrl: `${publicUrl}?qr=${def.id}` } });
     qrCodes = await prisma.qrCode.findMany({ where: { menuId: menu.id, businessId: c.business.id }, orderBy: { createdAt: "asc" } });
   }
 
